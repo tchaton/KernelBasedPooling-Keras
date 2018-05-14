@@ -70,6 +70,7 @@ class KernelBasedPooling(_Pooling2D):
                                       regularizer=self.kernel_regularizer,
                                       constraint=self.kernel_constraint)
         
+	print(self.kernel.get_shape())
         self.input_spec = InputSpec(ndim=self.rank + 2,
                                     axes={channel_axis: input_dim})
         self.built = True
@@ -86,8 +87,8 @@ class KernelBasedPooling(_Pooling2D):
             init = tf.expand_dims(inputs[:,:,:,c], axis=-1)
             if self.rank == 2:
                 outputs = K.conv2d(
-                    inputs,
-                    self.kernel,
+                    init,
+                    tf.expand_dims(self.kernel[:,:,c,:], 2),
                     strides=self.strides,
                     padding=self.padding,
                     data_format=self.data_format)

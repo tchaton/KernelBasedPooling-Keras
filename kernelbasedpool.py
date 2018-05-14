@@ -25,7 +25,7 @@ class KernelBasedPooling(_Pooling2D):
 
 
     @interfaces.legacy_conv2d_support
-    def __init__(self, units, kernel_size=(2, 2), strides=None, padding='valid', data_format=None,              
+    def __init__(self, filters, kernel_size=(2, 2), strides=None, padding='valid', data_format=None,              
                  kernel_initializer='glorot_uniform',
                  bias_initializer='zeros',
                  kernel_regularizer=None,
@@ -34,11 +34,13 @@ class KernelBasedPooling(_Pooling2D):
                  kernel_constraint=None,
                  bias_constraint=None,
                  activation='linear',
+		 with_softmax=True,
                  **kwargs):
         super(KernelBasedPooling, self).__init__(kernel_size, strides, padding,
                                            data_format, **kwargs)
         self.rank = 2
-        self.filters = units
+	self.with_softmax = with_softmax
+        self.filters = filters
         self.kernel_size = kernel_size
         self.activation = activations.get(activation)
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -89,6 +91,10 @@ class KernelBasedPooling(_Pooling2D):
                     strides=self.strides,
                     padding=self.padding,
                     data_format=self.data_format)
+		if self.with_softmax:
+		    exp = tf.exp(outputs)	
+		    prob = exp / tf.reduce_sum(exp, -1, keep_dims=True)
+                    outputs = outputs * prob
                 holder.append(tf.expand_dims(K.mean(outputs, axis=-1), axis=-1))
         return tf.concat(holder, axis=-1) 
 
@@ -110,5 +116,9 @@ if __name__ == '__main__':
 
 	print(out.shape)
 	'''
-		Resullt : (1, 224, 224, 3) : [(1, 224, 224, 1) for _ in range(3)] ->(conv2d)-> [(1, 112, 112, 32) for _ in range(3)] ->(mean)-> (1, 112, 112, 3)
+		Result : 1/ (1, 224, 224, 3) : [(1, 224, 224, 1) for _ in range(3)] #Split over channel dimension 
+                              ->(conv2d)->                                          # Apply the conv2 kernel over each element in the list
+                         2/ [(1, 112, 112, 4) for _ in range(3)]                   # Output shape of the convolution
+                              ->(mean)->                                            # Take average over channel dimension
+                         3/ (1, 112, 112, 3)                                        # Final output size (same as AveragePooling2D, MaxPooling) but we are learning lot of diffents way to pool
 	'''

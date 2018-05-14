@@ -78,9 +78,7 @@ class KernelBasedPooling(_Pooling2D):
 
     def _pooling_function(self, inputs, pool_size, strides,
                           padding, data_format):
-        #output = K.pool2d(inputs, pool_size, strides,
-        #                  padding, data_format,
-        #                  pool_mode='max')
+
         channels = inputs.get_shape()[-1]
         holder = []
         for c in range(channels):

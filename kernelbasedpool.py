@@ -1,10 +1,3 @@
-'''
-Python code Implementation: Kernel Based Pooling Layer
-'''
-
-__author__ = "tchaton"
-
-
 import tensorflow as tf
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
@@ -16,6 +9,18 @@ from keras.legacy import interfaces
 from keras import initializers
 from keras.layers import regularizers, constraints, activations
 from keras import backend as K
+from keras.initializers import Initializer
+from keras.regularizers import l2
+
+class MaskedConstant(Initializer):
+    """Initializer that generates tensors initialized to 1.
+    """
+
+    def __call__(self, shape, dtype=None):
+        uni = tf.random_uniform(shape, minval=-1, maxval=1)
+        return tf.where(tf.greater(uni, -0.9), 
+                         K.constant(1, shape=shape, dtype=dtype), 
+                         K.constant(0, shape=shape, dtype=dtype)) + tf.random_normal(shape, 0.01, 1)
 
 class KernelBasedPooling(_Pooling2D):
 
@@ -26,7 +31,7 @@ class KernelBasedPooling(_Pooling2D):
 
     @interfaces.legacy_conv2d_support
     def __init__(self, filters, kernel_size=(2, 2), strides=None, padding='valid', data_format=None,              
-                 kernel_initializer='glorot_uniform',
+                 kernel_initializer='uniform',
                  bias_initializer='zeros',
                  kernel_regularizer=None,
                  bias_regularizer=None,
@@ -39,7 +44,7 @@ class KernelBasedPooling(_Pooling2D):
         super(KernelBasedPooling, self).__init__(kernel_size, strides, padding,
                                            data_format, **kwargs)
         self.rank = 2
-	self.with_softmax = with_softmax
+        self.with_softmax = with_softmax
         self.filters = filters
         self.kernel_size = kernel_size
         self.activation = activations.get(activation)
@@ -52,6 +57,7 @@ class KernelBasedPooling(_Pooling2D):
         self.bias_constraint = constraints.get(bias_constraint)
         self.input_spec = InputSpec(min_ndim=2)
         self.supports_masking = True
+        self.trainable = True
         
     def build(self, input_shape):
         if self.data_format == 'channels_first':
@@ -64,13 +70,13 @@ class KernelBasedPooling(_Pooling2D):
         input_dim = input_shape[channel_axis]
         kernel_shape = self.kernel_size + (input_dim, self.filters)
 
-        self.kernel = self.add_weight(shape=kernel_shape,
-                                      initializer=self.kernel_initializer,
-                                      name='kernel',
-                                      regularizer=self.kernel_regularizer,
-                                      constraint=self.kernel_constraint)
+        self.kernel = self.add_weight(
+                    shape=kernel_shape,
+                    initializer=MaskedConstant(),
+                    name='kernel',
+                    regularizer=self.kernel_regularizer,
+                    constraint=self.kernel_constraint)
         
-	print(self.kernel.get_shape())
         self.input_spec = InputSpec(ndim=self.rank + 2,
                                     axes={channel_axis: input_dim})
         self.built = True
@@ -95,11 +101,17 @@ class KernelBasedPooling(_Pooling2D):
 		    prob = exp / tf.reduce_sum(exp, -1, keep_dims=True)
                     outputs = outputs * prob
                 holder.append(tf.expand_dims(K.mean(outputs, axis=-1), axis=-1))
-        return tf.concat(holder, axis=-1) 
+        output = K.pool2d(inputs, self.kernel_size, strides,
+            padding, data_format, pool_mode='max')
+        #print(holder)
+        #print(output)
+        concat = tf.concat(holder, axis=-1)
+        out = concat + output
+        return out
 
 if __name__ == '__main__':
 
-    kbp = KernelBasedPooling(4)
+    kbp = KernelBasedPooling(4, kernel_regularizer=l2(10e-4))
     kbp.build([1, 224, 224, 3])
     init_var = tf.global_variables_initializer()
     with tf.Session() as sess:
@@ -111,13 +123,7 @@ if __name__ == '__main__':
                                 seed=42,
 				)
     	output = kbp(init)
-    	out = sess.run(output)
+    	out, kernel = sess.run([output, kbp.kernel])
 
-	print(out.shape)
-	'''
-		Result : 1/ (1, 224, 224, 3) : [(1, 224, 224, 1) for _ in range(3)] #Split over channel dimension 
-                              ->(conv2d)->                                          # Apply the conv2 kernel over each element in the list
-                         2/ [(1, 112, 112, 4) for _ in range(3)]                   # Output shape of the convolution
-                              ->(mean)->                                            # Take average over channel dimension
-                         3/ (1, 112, 112, 3)                                        # Final output size (same as AveragePooling2D, MaxPooling) but we are learning lot of diffents way to pool
-	'''
+        print(out.shape)
+        print(kernel)

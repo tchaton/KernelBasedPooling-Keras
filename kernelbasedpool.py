@@ -1,3 +1,10 @@
+'''
+Python code Implementation: Kernel Based Pooling Layer
+'''
+
+__author__ = "tchaton"
+
+
 import tensorflow as tf
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
@@ -11,6 +18,11 @@ from keras.layers import regularizers, constraints, activations
 from keras import backend as K
 
 class KernelBasedPooling(_Pooling2D):
+
+    '''
+	Perform N conv2d with size kernel_size over each channel size, average them and concat them
+    '''
+
 
     @interfaces.legacy_conv2d_support
     def __init__(self, units, kernel_size=(2, 2), strides=None, padding='valid', data_format=None,              
@@ -97,3 +109,6 @@ if __name__ == '__main__':
     	out = sess.run(output)
 
 	print(out.shape)
+	'''
+		Resullt : (1, 224, 224, 3) : [(1, 224, 224, 1) for _ in range(3)] ->(conv2d)-> [(1, 112, 112, 32) for _ in range(3)] ->(mean)-> (1, 112, 112, 3)
+	'''

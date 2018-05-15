@@ -17,10 +17,7 @@ class MaskedConstant(Initializer):
     """
 
     def __call__(self, shape, dtype=None):
-        uni = tf.random_uniform(shape, minval=-1, maxval=1)
-        return tf.where(tf.greater(uni, -0.9), 
-                         K.constant(1, shape=shape, dtype=dtype), 
-                         K.constant(0, shape=shape, dtype=dtype)) + tf.random_normal(shape, 0.01, 1)
+        return K.constant(1, shape=shape, dtype=dtype) + tf.random_normal(shape, 0, 0.1)
 
 class KernelBasedPooling(_Pooling2D):
 

@@ -1,3 +1,9 @@
+'''
+Python code Implementation: Kernel Based Pooling Layer
+'''
+
+__author__ = "tchaton"
+
 import tensorflow as tf
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
@@ -100,8 +106,6 @@ class KernelBasedPooling(_Pooling2D):
                 holder.append(tf.expand_dims(K.mean(outputs, axis=-1), axis=-1))
         output = K.pool2d(inputs, self.kernel_size, strides,
             padding, data_format, pool_mode='max')
-        #print(holder)
-        #print(output)
         concat = tf.concat(holder, axis=-1)
         out = concat + output
         return out
@@ -124,3 +128,10 @@ if __name__ == '__main__':
 
         print(out.shape)
         print(kernel)
+	'''
+		Result : 1/ (1, 224, 224, 3) : [(1, 224, 224, 1) for _ in range(3)] #Split over channel dimension 
+                              ->(conv2d)->                                          # Apply the conv2 kernel over each element in the list
+                         2/ [(1, 112, 112, 4) for _ in range(3)]                   # Output shape of the convolution
+                              ->(mean)->                                            # Take average over channel dimension
+                         3/ (1, 112, 112, 3)                                        # Final output size (same as AveragePooling2D, MaxPooling) but we are learning lot of diffents way to pool
+	'''

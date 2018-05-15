@@ -7,6 +7,12 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras import backend as K
 from kernelbasedpool import KernelBasedPooling
 
+import matplotlib
+from matplotlib import pyplot as plt
+
+np.random.seed(42)
+tf.set_random_seed(42)
+
 batch_size = 128
 num_classes = 10
 epochs = 12
@@ -38,6 +44,11 @@ print(x_test.shape[0], 'test samples')
 y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 
+
+###############################################################
+#                 KernelBasedPooling                          #
+###############################################################
+
 model = Sequential()
 model.add(Conv2D(32, kernel_size=(3, 3),
                  activation='relu',
@@ -49,21 +60,54 @@ model.add(Flatten())
 model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(num_classes, activation='softmax'))
+
 model.compile(loss=keras.losses.categorical_crossentropy,
               optimizer=keras.optimizers.Adadelta(),
               metrics=['accuracy'])
 
-print(model.trainable_weights)
-# Kernel before Training
-print(model.layers[2].kernel.eval(session=K.get_session()))
-h = model.fit(x_train, y_train,
+history = model.fit(x_train, y_train,
           batch_size=batch_size,
-          epochs=epochs,
+          epochs=200,
           verbose=1,
           validation_data=(x_test, y_test))
-
-# Kernel After Training
-print(model.layers[2].kernel.eval(session=K.get_session()))
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
+
+###############################################################
+#                       MaxPooling                           #
+###############################################################
+
+
+model = Sequential()
+model.add(Conv2D(32, kernel_size=(3, 3),
+                 activation='relu',
+                 input_shape=input_shape))
+model.add(Conv2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D())
+model.add(Dropout(0.25))
+model.add(Flatten())
+model.add(Dense(128, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(num_classes, activation='softmax'))
+
+model.compile(loss=keras.losses.categorical_crossentropy,
+              optimizer=keras.optimizers.Adadelta(),
+              metrics=['accuracy'])
+
+h = model.fit(x_train, y_train,
+          batch_size=batch_size,
+          epochs=200,
+          verbose=1,
+          validation_data=(x_test, y_test))
+score = model.evaluate(x_test, y_test, verbose=0)
+print('Test loss:', score[0])
+print('Test accuracy:', score[1])
+
+fig = plt.figure()
+plt.plot(history.history['acc'], color='red')
+plt.plot(h.history['acc'])
+plt.show()
+fig.savefig('kernel_based_pooling_mnist.PNG', dpi=fig.dpi)
+
+
